@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listWorkouts, addExercise } from "../data/workouts.js";
+import { listWorkouts, addExercise, addSet } from "../data/workouts.js";
 import { formatShort } from "../lib/dates.js";
 
 export default function History() {
@@ -35,6 +35,38 @@ export default function History() {
               <div style={{ fontSize: 13, opacity: 0.75 }}>
                 Упражнений: {w.exercises?.length ?? 0}
               </div>
+
+              {(w.exercises || []).length > 0 && (
+                <ul style={{listStyle: "none", padding: 0, marginTop: 8}}>
+                  {w.exercises.map((ex) => (
+                    <li key={ex.id} style={{padding: "8px 0", borderTop: "1px dashed #e5e7eb"}}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
+                        <div>
+                          <strong>{ex.name}</strong>{" "}
+                          <span style={{ fontSize: 12, opacity: 0.7 }}>
+                            (подходов: {ex.sets?.length ?? 0})
+                          </span>
+                        </div>
+                        <button onClick={() => {
+                          // тестово добавим 8×40
+                          addSet(w.id, ex.id, { reps: 8, weight: 40 });
+                          setItems(listWorkouts());
+                        }}
+                        style={{ 
+                        padding: "6px 10px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                        cursor: "pointer",
+                         }}
+                          >
+                          ➕ Добавить подход (тест)
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               <button
                 onClick={() => {
                   addExercise(w.id, { name: "Bench Press" });

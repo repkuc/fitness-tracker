@@ -99,3 +99,40 @@ export function addExercise(workoutId, { name, targetMuscle } = {}) {
   saveJSON(STORAGE_KEYS.WORKOUTS, all);
   return true;
 }
+
+/**
+ * Добавить подход к упражнению
+ * @param {string} workoutId
+ * @param {string} exerciseId
+ * @param {{ reps: number, weight: number, rpe?: number, restSec?: number, isWarmup?: boolean }} payload
+ * @returns {boolean} true если добавили
+ */
+
+export function addSet(workoutId, exerciseId, payload) {
+  const all = listWorkouts();
+  const wIdx = all.findIndex((w) => w.id === workoutId);
+  if (wIdx === -1) return false;
+
+  const exList = all[wIdx].exercises || [];
+  const exIdx = exList.findIndex((e) => e.id === exerciseId);
+  if (exIdx === -1) return false;
+
+  const ex = exList[exIdx];
+  const set = {
+    id: uid(),
+    exerciseId,
+    reps: Number(payload.reps || 0),
+    weight: Number(payload.weight || 0),
+    rpe: payload?.rpe,
+    restSec: payload?.restSec,
+    isWarmup: payload?.isWarmup ?? false,
+  };
+
+  const updatedExercise = { ...ex, sets: [...(ex.sets || []), set] };
+  const updatedExercises = [...exList];
+  updatedExercises[exIdx] = updatedExercise;
+
+  all[wIdx] = { ...all[wIdx], exercises: updatedExercises };
+  saveJSON(STORAGE_KEYS.WORKOUTS, all);
+  return true;
+}

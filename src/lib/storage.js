@@ -1,5 +1,6 @@
 export const STORAGE_KEYS = {
   WORKOUTS: "wt.workouts.v1",
+  CURRENT_WORKOUT_ID: "wt.currentWorkoutId.v1",
 };
 
 /** Безопасная загрузка JSON из localStorage */

@@ -121,8 +121,8 @@ export function addSet(workoutId, exerciseId, payload) {
   const set = {
     id: uid(),
     exerciseId,
-    reps: Number(payload.reps || 0),
-    weight: Number(payload.weight || 0),
+    reps: Number(payload.reps ?? 0),
+    weight: Number(payload.weight ?? 0),
     rpe: payload?.rpe,
     restSec: payload?.restSec,
     isWarmup: payload?.isWarmup ?? false,
@@ -136,3 +136,8 @@ export function addSet(workoutId, exerciseId, payload) {
   saveJSON(STORAGE_KEYS.WORKOUTS, all);
   return true;
 }
+
+/** Вернуть тренировку по id или null */
+export function getWorkout(workoutId) {
+  return _loadAll().find((w) => w.id === workoutId) || null;
+} 

@@ -141,3 +141,58 @@ export function addSet(workoutId, exerciseId, payload) {
 export function getWorkout(workoutId) {
   return _loadAll().find((w) => w.id === workoutId) || null;
 } 
+
+// удалить упражнение из тренировки
+export function removeExercise(workoutId, exerciseId){
+  const all = listWorkouts();
+  const wIdx = all.findIndex((w) => w.id === workoutId);
+  if (wIdx === -1) return false;
+
+  const exList = all[wIdx].exercises || [];
+  const nextEx = exList.filter((e) => e.id !== exerciseId);
+
+  all[wIdx] = { ...all[wIdx], exercises: nextEx };
+  saveJSON(STORAGE_KEYS.WORKOUTS, all);
+  return true;
+}
+
+// создать новую тренировку на основе существующей (с копией упражнений и подходов)
+export function repeatWorkout(sourceWorkoutId, { date, name } = {}) {
+  const all = _loadAll();
+  const src = all.find((w) => w.id === sourceWorkoutId);
+  if (!src) return null;
+
+  const newWorkoutId = uid();
+
+  const exercises = (src.exercises || []).map((ex) => {
+    const newExId = uid();
+    return {
+      id: newExId,
+      workoutId: newWorkoutId,
+      name: ex.name,
+      targetMuscle: ex.targetMuscle,
+      sets: (ex.sets || []).map((s) => ({
+        id: uid(),
+        exerciseId: newExId,
+        reps: s.reps,
+        weight: s.weight,
+        rpe: s.rpe,
+        restSec: s.restSec,
+        isWarmup: !!s.isWarmup,
+      })),
+    };
+  });
+
+  const newWorkout = {
+    id: newWorkoutId,
+    date: date || todayISODate(),
+    name: name ?? (src.name || ""),
+    notes: "",
+    sourceWorkoutId: src.id, // помним, из какой копировали
+    exercises,
+  };
+
+  all.push(newWorkout);
+  saveJSON(STORAGE_KEYS.WORKOUTS, all);
+  return newWorkout;
+}

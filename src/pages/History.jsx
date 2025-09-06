@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listWorkouts, addExercise, addSet } from "../data/workouts.js";
+import { listWorkouts, addExercise, addSet, repeatWorkout } from "../data/workouts.js";
 import { formatShort } from "../lib/dates.js";
 
 export default function History() {
@@ -35,6 +35,16 @@ export default function History() {
               <div style={{ fontSize: 13, opacity: 0.75 }}>
                 Упражнений: {w.exercises?.length ?? 0}
               </div>
+
+              <button
+                onClick={() => {
+                  repeatWorkout(w.id);
+                  setItems(listWorkouts()); // обновим список — новая тренировка появится сверху (по дате)
+                }}
+                style={{ marginTop: 8, padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, cursor: "pointer" }}
+              >
+                ➕ Повторить тренировку (создать новую на её основе)
+              </button>
 
               {(w.exercises || []).length > 0 && (
                 <ul style={{listStyle: "none", padding: 0, marginTop: 8}}>

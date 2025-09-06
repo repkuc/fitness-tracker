@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createWorkout, getWorkout, addExercise } from "../data/workouts.js";
+import { createWorkout, getWorkout, addExercise, removeExercise } from "../data/workouts.js";
 import { todayISODate } from "../lib/dates.js";
 import { loadJSON, saveJSON, STORAGE_KEYS } from "../lib/storage.js";
 
@@ -107,7 +107,19 @@ export default function WorkoutEditor() {
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {workout.exercises.map((ex) => (
                 <li key={ex.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                  <div style={{ fontWeight: 600 }}>{ex.name}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}> 
+                    <div style={{ fontWeight: 600 }}>{ex.name}</div>
+                    <button
+                      onClick={() => {
+                        removeExercise(currentId, ex.id);
+                        setWorkout(getWorkout(currentId));
+                      }}
+                      title="Удалить упражнение"
+                      style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: "4px 8px", cursor: "pointer" }}
+                      >
+                        ✖
+                    </button>
+                  </div>
                   <div style={{ fontSize: 13, opacity: 0.75 }}>
                     Мышца: {ex.targetMuscle || "—"} · Подходов: {ex.sets?.length ?? 0}
                   </div>

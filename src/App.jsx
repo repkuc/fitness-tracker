@@ -45,11 +45,13 @@ export default function App() {
       </header>
 
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/workout/new" element={<WorkoutEditor />} />
-        <Route path="/history" element={<History />} />
-        {/* на будущее: <Route path="/workout/:id" element={<WorkoutEditor />} /> */}
-      </Routes>
+  <Route path="/" element={<Home />} />
+  <Route path="/workout/new" element={<WorkoutEditor />} />
+  <Route path="/workout/:id" element={<WorkoutEditor />} />
+  <Route path="/history" element={<History />} />
+  <Route path="*" element={<div style={{padding:16}}>Страница не найдена</div>} />
+</Routes>
+
     </main>
   );
 }

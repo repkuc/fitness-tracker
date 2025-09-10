@@ -7,10 +7,18 @@ export function todayISODate() {
 
 /** Красивый вывод даты для списка (можно улучшить позже) */
 export function formatShort(dateStr) {
+  if (!dateStr) return "—";
+  // Явно поддержим YYYY-MM-DD (без часов/зон)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dd = new Date(y, m - 1, d);
+    return dd.toLocaleDateString();
+  }
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return String(dateStr || "—");
   try {
-    const d = new Date(dateStr);
     return d.toLocaleDateString();
   } catch {
-    return dateStr || "";
+    return String(dateStr || "—");
   }
 }

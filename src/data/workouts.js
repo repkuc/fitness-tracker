@@ -29,7 +29,7 @@ import { todayISODate } from "../lib/dates.js";
  * @property {string=}         name             - название тренировки (например, "Грудь/трицепс"), опционально
  * @property {string=}         notes            - заметки к тренировке, опционально
  * @property {string=}         sourceWorkoutId  - id «источника», если тренировка создана копированием/шаблоном, опционально
- * @property {WorkoutStatus=}  status          - статус тренировки: черновик (редактируется) или завершена
+ * @property {WorkoutStatus=}  status           - статус тренировки: черновик (редактируется) или завершена
  * @property {string=}         finishedAt       - дата и время завершения тренировки в ISO-формате, опционально
  * @property {ExerciseModel[]} exercises        - список упражнений в этой тренировке
  */
@@ -41,34 +41,65 @@ function _loadAll() {
   const raw = loadJSON(STORAGE_KEYS.WORKOUTS, []);
 
   let changed = false;
+
   const normalized = raw.map((w) => {
-    // Дата: если пустая/битая — берём finishedAt или сегодня
+    // --- Дата: если пустая/битая — берём finishedAt (день) или сегодня ---
     const hasValidDate = w.date && !Number.isNaN(Date.parse(w.date));
     const safeDate = hasValidDate
       ? w.date
       : (w.finishedAt ? String(w.finishedAt).slice(0, 10) : todayISODate());
 
-    // Статус: если не задан — draft только для текущей, иначе done
+    // --- Статус: если не задан — draft для текущей, иначе done ---
     const status = w.status ?? (w.id === currentId ? "draft" : "done");
-
-    // Фиксим только если что-то поменяли
     if (safeDate !== w.date || status !== w.status) changed = true;
+
+    // --- Упражнения и подходы: нормализация ---
+    const exercises = (Array.isArray(w.exercises) ? w.exercises : []).map((ex, ei) => {
+      // position: по индексу, если не было
+      const pos =
+        typeof ex?.position === "number" && Number.isFinite(ex.position)
+          ? ex.position
+          : ei;
+      if (pos !== ex.position) changed = true;
+
+      // Нормализуем наборы (sets)
+      const sets = (Array.isArray(ex.sets) ? ex.sets : []).map((s) => {
+        const reps = Number.isFinite(Number(s?.reps)) ? Number(s.reps) : 0;
+        const weight = Number.isFinite(Number(s?.weight)) ? Number(s.weight) : 0;
+        const isDone = Boolean(s?.isDone); // дефолт false
+        if (reps !== s.reps || weight !== s.weight || isDone !== s.isDone) {
+          changed = true;
+        }
+        return {
+          ...s,
+          reps,
+          weight,
+          isDone,
+        };
+      });
+
+      return {
+        ...ex,
+        position: pos,
+        sets,
+      };
+    });
 
     return {
       ...w,
       date: safeDate,
       status,
       finishedAt: w.finishedAt ?? undefined,
-      exercises: Array.isArray(w.exercises) ? w.exercises : [],
+      exercises,
     };
   });
 
-  // Один раз перезапишем, чтобы очистить «битые» данные
+  // Если что-то починили — один раз перезапишем в storage
   if (changed) {
     saveJSON(STORAGE_KEYS.WORKOUTS, normalized);
   }
 
-  // Новые сверху по дате (YYYY-MM-DD нормально сравнивается как строка)
+  // Базовая сортировка по дате (для History мы уже сортируем по finishedAt отдельно)
   return normalized.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 }
 
@@ -125,6 +156,7 @@ export function addExercise(workoutId, { name, targetMuscle } = {}) {
     name: name || "Exercise",
     targetMuscle: targetMuscle || undefined,
     sets: [],
+    position: (all[idx].exercises?.length ?? 0), // ← ставим позицию в конец
   };
 
   // добавляем упражнение
@@ -219,6 +251,7 @@ export function repeatWorkout(sourceWorkoutId, { date, name } = {}) {
         rpe: s.rpe,
         restSec: s.restSec,
         isWarmup: !!s.isWarmup,
+        isDone: false, // все подходы в новом черновике — не выполнены
       })),
     };
   });
@@ -270,6 +303,47 @@ export function removeSet(workoutId, exerciseId, setId) {
   return true;                                                // Возвращаем true, чтобы показать, что подход успешно удален
 }
 
+// эта функция может обновить reps, weight, isDone (передаём только нужные поля в changes)
+export function updateSet(workoutId, exerciseId, setId, changes = {}) {
+  const all = _loadAll();                          // Загружаем все тренировки
+  const wIdx = all.findIndex((w) => w.id === workoutId); // Ищем нужную тренировку
+  if (wIdx === -1) return false;
+
+  const exList = all[wIdx].exercises || [];                  // Получаем список упражнений, если его нет, используем пустой массив
+  const eIdx = exList.findIndex((e) => e.id === exerciseId); // Ищем нужное упражнение внутри тренировки
+  if (eIdx === -1) return false;
+
+  const sets = exList[eIdx].sets || [];               // Получаем список подходов, если его нет, используем пустой массив
+  const sIdx = sets.findIndex((s) => s.id === setId); // Ищем нужный подход внутри упражнения
+  if (sIdx === -1) return false;
+
+  const cur = sets[sIdx]; // текущий подход
+  const next = { // обновлённый подход
+    ...cur, // копируем текущий подход
+    reps: changes.hasOwnProperty("reps") ? 
+    Math.max(0, Number(changes.reps) || 0 ) : 
+    cur.reps, // обновляем reps, если передано в changes
+
+    weight: changes.hasOwnProperty("weight") ?
+    Math.max(0, Number(changes.weight) || 0 ) :
+    cur.weight, // обновляем weight, если передано в changes
+
+    isDone: changes.hasOwnProperty("isDone") ?
+    Boolean(changes.isDone) : 
+    (cur.isDone ?? false), // обновляем isDone, если передано в changes
+  };
+
+  const nextSets = [...sets]; // копируем массив подходов
+  nextSets[sIdx] = next;      // обновляем нужный подход в массиве
+
+  const nextExList = [...exList];                         // копируем массив упражнений
+  nextExList[eIdx] = { ...exList[eIdx], sets: nextSets }; // обновляем упражнение с новым массивом подходов
+
+  all[wIdx] = { ...all[wIdx], exercises: nextExList }; // обновляем тренировку с новым массивом упражнений
+  saveJSON(STORAGE_KEYS.WORKOUTS, all);                 // сохраняем обновлённый список тренировок
+  return true;
+}
+
 // обновить дату/имя/заметки тренировки
 export function updateWorkoutMeta(workoutId, changes = {}) {
   const all = listWorkouts();                           // Загружаем все тренировки
@@ -318,17 +392,58 @@ export function getDraftWorkout() {
 
 // удалить тренировку (используем для "Отменить" черновик)
 export function deleteWorkout(workoutId) {
-  const all = _loadAll();
-  const idx = all.findIndex((w) => w.id === workoutId);
+  const all = _loadAll();                               // загружаем все тренировки
+  const idx = all.findIndex((w) => w.id === workoutId); // ищем нужную
   if (idx === -1) return false;
 
-  const next = [...all.slice(0, idx), ...all.slice(idx + 1)];
-  saveJSON(STORAGE_KEYS.WORKOUTS, next);
+  const next = [...all.slice(0, idx), ...all.slice(idx + 1)]; // создаём новый массив без этой тренировки
+  saveJSON(STORAGE_KEYS.WORKOUTS, next);                       // сохраняем
 
   // если удаляем текущий черновик — очищаем указатель
-  const currentId = loadJSON(STORAGE_KEYS.CURRENT_WORKOUT_ID, "");
-  if (currentId === workoutId) {
-    saveJSON(STORAGE_KEYS.CURRENT_WORKOUT_ID, "");
+  const currentId = loadJSON(STORAGE_KEYS.CURRENT_WORKOUT_ID, ""); // текущая тренировка (черновик)
+  if (currentId === workoutId) {                       // если это она
+    saveJSON(STORAGE_KEYS.CURRENT_WORKOUT_ID, "");     // сбрасываем текущую тренировку
   }
+  return true;
+}
+
+// внутренняя: отсортировать и перенумеровать позиции 0..N-1
+function _normalizePositions(exercises) { 
+  const list = Array.isArray(exercises) ? exercises.slice() : []; // копия массива
+  list.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)); // сортируем по позиции
+  return list.map((ex, i) => ({ ...ex, position: i })); // перенумеровываем позиции
+}
+
+export function moveExercise(workoutId, exerciseId, direction /* 'up' | 'down' */) {
+  const all = _loadAll();
+  const wIdx = all.findIndex((w) => w.id === workoutId);
+  if (wIdx === -1) return false;
+
+  const list = Array.isArray(all[wIdx].exercises) ? [...all[wIdx].exercises] : [];
+  if (list.length < 2) return false;
+
+  // 1) нормализуем текущие позиции 0..N-1
+  list
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .forEach((ex, i) => { ex.position = i; });
+
+  // 2) ищем элемент и рассчитываем цель
+  const idx = list.findIndex((e) => e.id === exerciseId);
+  if (idx === -1) return false;
+
+  const delta = direction === "up" ? -1 : 1;
+  const target = idx + delta;
+  if (target < 0 || target >= list.length) return false;
+
+  // 3) двигаем: вырезаем и вставляем на новую позицию
+  const [moved] = list.splice(idx, 1);
+  list.splice(target, 0, moved);
+
+  // 4) снова проставим позиции последовательно
+  list.forEach((ex, i) => { ex.position = i; });
+
+  // 5) сохраним
+  all[wIdx] = { ...all[wIdx], exercises: list };
+  saveJSON(STORAGE_KEYS.WORKOUTS, all);
   return true;
 }

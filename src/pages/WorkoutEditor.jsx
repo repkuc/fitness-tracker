@@ -11,7 +11,9 @@ import {
   updateWorkoutMeta,
   finishWorkout,
   getDraftWorkout,
-  deleteWorkout
+  deleteWorkout,
+  updateSet,
+  moveExercise,
 } from "../data/workouts.js";
 import { todayISODate } from "../lib/dates.js";
 import { loadJSON, saveJSON, STORAGE_KEYS } from "../lib/storage.js";
@@ -269,158 +271,266 @@ export default function WorkoutEditor() {
           </form>
 
           {/* список упражнений */}
-          {(workout.exercises ?? []).length === 0 ? (
-            <p style={{ opacity: 0.8 }}>Добавь первое упражнение.</p>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {(workout.exercises ?? []).map((ex) => (
-                <li
-                  key={ex.id}
+{(workout.exercises ?? []).length === 0 ? (
+  <p style={{ opacity: 0.8 }}>Добавь первое упражнение.</p>
+) : (
+  (() => {
+    const exList = (workout.exercises ?? [])
+      .slice()
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+    return (
+      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        {exList.map((ex, i) => (
+          <li
+            key={ex.id}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 10,
+            }}
+          >
+            {/* шапка упражнения */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <div style={{ fontWeight: 600 }}>{ex.name}</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => {
+                    moveExercise(currentId, ex.id, "up");
+                    setWorkout(getWorkout(currentId));
+                  }}
+                  disabled={i === 0}
+                  title="Выше"
                   style={{
+                    padding: "4px 8px",
                     border: "1px solid #e5e7eb",
-                    borderRadius: 10,
-                    padding: 12,
-                    marginBottom: 10,
+                    borderRadius: 8,
+                    cursor: i === 0 ? "default" : "pointer",
+                    opacity: i === 0 ? 0.5 : 1,
                   }}
                 >
-                  {/* шапка упражнения */}
-                  <div
+                  ↑
+                </button>
+                <button
+                  onClick={() => {
+                    moveExercise(currentId, ex.id, "down");
+                    setWorkout(getWorkout(currentId));
+                  }}
+                  disabled={i === exList.length - 1}
+                  title="Ниже"
+                  style={{
+                    padding: "4px 8px",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    cursor: i === exList.length - 1 ? "default" : "pointer",
+                    opacity: i === exList.length - 1 ? 0.5 : 1,
+                  }}
+                >
+                  ↓
+                </button>
+                <button
+                  onClick={() => {
+                    if (!confirm("Удалить упражнение?")) return;
+                    removeExercise(currentId, ex.id);
+                    setWorkout(getWorkout(currentId));
+                  }}
+                  title="Удалить упражнение"
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✖
+                </button>
+              </div>
+            </div>
+
+            {/* инфо */}
+            <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>
+              Мышца: {ex.targetMuscle || "—"} · Подходов: {ex.sets?.length ?? 0}
+            </div>
+
+            {/* список подходов */}
+            {(ex.sets ?? []).length > 0 && (
+              <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
+                {(ex.sets ?? []).map((s) => (
+                  <li
+                    key={s.id}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
+                      padding: "6px 0",
+                      fontSize: 14,
+                      display: "grid",
+                      gridTemplateColumns: "120px 120px 1fr auto",
                       alignItems: "center",
                       gap: 8,
                     }}
                   >
-                    <div style={{ fontWeight: 600 }}>{ex.name}</div>
+                    {/* reps */}
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      defaultValue={s.reps}
+                      disabled={s.isDone}
+                      onBlur={(e) => {
+                        const v = Math.max(0, Number(e.currentTarget.value || 0));
+                        if (v !== s.reps) {
+                          updateSet(currentId, ex.id, s.id, { reps: v });
+                          setWorkout(getWorkout(currentId));
+                        }
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                      }}
+                      placeholder="Повторы"
+                      aria-label="Повторы"
+                    />
+
+                    {/* weight */}
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.5"
+                      min="0"
+                      defaultValue={s.weight}
+                      disabled={s.isDone}
+                      onBlur={(e) => {
+                        const v = Math.max(0, Number(e.currentTarget.value || 0));
+                        if (v !== s.weight) {
+                          updateSet(currentId, ex.id, s.id, { weight: v });
+                          setWorkout(getWorkout(currentId));
+                        }
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                      }}
+                      placeholder="Вес"
+                      aria-label="Вес"
+                    />
+
+                    {/* чекбокс "выполнен" */}
+                    <label
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        opacity: 0.9,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!s.isDone}
+                        onChange={(e) => {
+                          updateSet(currentId, ex.id, s.id, {
+                            isDone: e.currentTarget.checked,
+                          });
+                          setWorkout(getWorkout(currentId));
+                        }}
+                      />
+                      выполнен
+                    </label>
+
+                    {/* удалить подход */}
                     <button
                       onClick={() => {
-                        if (!confirm("Удалить упражнение?")) return;
-                        removeExercise(currentId, ex.id);
+                        if (!confirm("Удалить подход?")) return;
+                        removeSet(currentId, ex.id, s.id);
                         setWorkout(getWorkout(currentId));
                       }}
-                      title="Удалить упражнение"
+                      title="Удалить подход"
                       style={{
                         border: "1px solid #e5e7eb",
                         borderRadius: 8,
-                        padding: "4px 8px",
+                        padding: "2px 8px",
                         cursor: "pointer",
                       }}
                     >
                       ✖
                     </button>
-                  </div>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-                  {/* инфо */}
-                  <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>
-                    Мышца: {ex.targetMuscle || "—"} · Подходов:{" "}
-                    {ex.sets?.length ?? 0}
-                  </div>
-
-                  {/* список подходов */}
-                  {(ex.sets ?? []).length > 0 && (
-                    <ul
-                      style={{ listStyle: "none", padding: 0, marginTop: 8 }}
-                    >
-                      {(ex.sets ?? []).map((s) => (
-                        <li
-                          key={s.id}
-                          style={{
-                            padding: "4px 0",
-                            fontSize: 14,
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <span>
-                            {s.reps} × {s.weight}
-                          </span>
-                          <button
-                            onClick={() => {
-                              if (!confirm("Удалить подход?")) return;
-                              removeSet(currentId, ex.id, s.id);
-                              setWorkout(getWorkout(currentId));
-                            }}
-                            title="Удалить подход"
-                            style={{
-                              border: "1px solid #e5e7eb",
-                              borderRadius: 8,
-                              padding: "2px 8px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            ✖
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {/* форма добавления подхода */}
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const fd = new FormData(e.currentTarget);
-                      const reps = Number(fd.get("reps") || 0);
-                      const weight = Number(fd.get("weight") || 0);
-                      if (!Number.isFinite(reps) || reps <= 0) return;
-                      if (!Number.isFinite(weight) || weight < 0) return;
-                      addSet(currentId, ex.id, { reps, weight });
-                      setWorkout(getWorkout(currentId));
-                      e.currentTarget.reset();
-                    }}
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      marginTop: 8,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <input
-                      name="reps"
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      placeholder="Повторы"
-                      style={{
-                        padding: "6px 10px",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        width: 110,
-                      }}
-                    />
-                    <input
-                      name="weight"
-                      type="number"
-                      inputMode="decimal"
-                      step="0.5"
-                      min="0"
-                      placeholder="Вес"
-                      style={{
-                        padding: "6px 10px",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        width: 110,
-                      }}
-                    />
-                    <button
-                      type="submit"
-                      style={{
-                        padding: "6px 10px",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        cursor: "pointer",
-                      }}
-                    >
-                      ➕ Добавить подход
-                    </button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          )}
+            {/* форма добавления подхода */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const reps = Number(fd.get("reps") || 0);
+                const weight = Number(fd.get("weight") || 0);
+                if (!Number.isFinite(reps) || reps <= 0) return;
+                if (!Number.isFinite(weight) || weight < 0) return;
+                addSet(currentId, ex.id, { reps, weight });
+                setWorkout(getWorkout(currentId));
+                e.currentTarget.reset();
+              }}
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <input
+                name="reps"
+                type="number"
+                inputMode="numeric"
+                min="1"
+                placeholder="Повторы"
+                style={{
+                  padding: "6px 10px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  width: 110,
+                }}
+              />
+              <input
+                name="weight"
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                min="0"
+                placeholder="Вес"
+                style={{
+                  padding: "6px 10px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  width: 110,
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: "6px 10px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                }}
+              >
+                ➕ Добавить подход
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    );
+  })()  // ← ВАЖНО: вызываем IIFE!
+)}
 
           {/* нижняя кнопка: сохранить тренировку (только для черновика) */}
           {(workout.status ?? "draft") === "draft" && (

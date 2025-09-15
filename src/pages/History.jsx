@@ -87,6 +87,13 @@ export default function History() {
                         >
                           🔁 Повторить
                         </button>
+
+                        <button 
+                        onClick={() => navigate(`/workout/${w.id}?edit=1`)}
+                        style={{ padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, cursor: "pointer" }}
+                        >
+                          ✏️ Изменить
+                        </button>
                       </div>
                     </>
                   );

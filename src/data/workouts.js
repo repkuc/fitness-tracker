@@ -414,6 +414,7 @@ function _normalizePositions(exercises) {
   return list.map((ex, i) => ({ ...ex, position: i })); // перенумеровываем позиции
 }
 
+// переместить упражнение внутри тренировки (up или down)
 export function moveExercise(workoutId, exerciseId, direction /* 'up' | 'down' */) {
   const all = _loadAll();
   const wIdx = all.findIndex((w) => w.id === workoutId);
@@ -446,4 +447,39 @@ export function moveExercise(workoutId, exerciseId, direction /* 'up' | 'down' *
   all[wIdx] = { ...all[wIdx], exercises: list };
   saveJSON(STORAGE_KEYS.WORKOUTS, all);
   return true;
+}
+
+// Полностью заменить содержимое тренировки (без смены id/status/finishedAt)
+export function replaceWorkout(workoutId, next) {
+  const all = _loadAll();                             // загружаем все тренировки
+  const idx = all.findIndex((w) => w.id === workoutId); // ищем нужную
+  if (idx === -1) return false;
+
+  const orig = all[idx];
+
+  // Санитизируем упражнения/подходы (позиции и числовые поля)
+  const exercises = (Array.isArray(next?.exercises) ? next.exercises : []).map((ex, i) => {
+    const position = Number.isFinite(ex?.position) ? Number(ex.position) : i;
+    const sets = (Array.isArray(ex?.sets) ? ex.sets : []).map((s) => ({
+      ...s,
+      reps: Math.max(0, Number(s?.reps || 0)),
+      weight: Math.max(0, Number(s?.weight || 0)),
+      isDone: !!s?.isDone,
+    }));
+    return {...ex,  position, sets };
+  });
+
+  const updated = {
+    ...orig, // сохраняем id, status, finishedAt
+    date: next?.date ?? orig.date,
+    name: next?.name ?? orig.name,
+    notes: next?.notes ?? orig.notes,
+    exercises,
+    // id, status, finishedAt сохраняем как были
+  };
+
+  all[idx] = updated;
+  saveJSON(STORAGE_KEYS.WORKOUTS, all);
+  return true;
+
 }

@@ -1,6 +1,6 @@
 // src/pages/WorkoutEditor.jsx
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   createWorkout,
   getWorkout,
@@ -14,6 +14,7 @@ import {
   deleteWorkout,
   updateSet,
   moveExercise,
+  replaceWorkout
 } from "../data/workouts.js";
 import { todayISODate } from "../lib/dates.js";
 import { loadJSON, saveJSON, STORAGE_KEYS } from "../lib/storage.js";
@@ -22,6 +23,7 @@ export default function WorkoutEditor() {
   const navigate = useNavigate();
   const { id: paramId } = useParams(); // id из URL
 
+
   // состояние
   const [currentId, setCurrentId] = useState("");
   const [workout, setWorkout] = useState(null);
@@ -29,6 +31,12 @@ export default function WorkoutEditor() {
   const [muscle, setMuscle] = useState(""); // мышца (опц.)
   const [metaName, setMetaName] = useState(""); // имя тренировки
   const [metaDate, setMetaDate] = useState(""); // дата тренировки
+  // Рабочая копия для режима редактирования завершённой тренировки (?edit=1)
+  const [editCopy, setEditCopy] = useState(null); // копия тренировки для редактирования
+  // клонирование без побочек
+  const clone = (obj) => JSON.parse(JSON.stringify(obj));
+  // простой генератор id для локальных сущностей
+  const newId = () => (crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)); // пример: "q1w2e3r4t5y6"
 
   // При входе: если есть :id в URL — используем его; иначе восстановим последнюю «текущую»
   useEffect(() => {
@@ -71,8 +79,23 @@ export default function WorkoutEditor() {
       setWorkout(w);
       setMetaName(w.name || "");
       setMetaDate(w.date || "");
+      // если мы редактируем завершённую — готовим локальную копию
+      if (paramId && (w.status ?? "draft") === "done") {
+        setEditCopy(clone(w));
+      } else {
+        setEditCopy(null);
+      }
     }
   }, [currentId]);
+
+
+
+  const [searchParams] = useSearchParams(); // для опций
+  const wantsEdit = searchParams.get("edit") === "1"; // редактировать завершённую тренировку (опция)
+
+  const isDone = (workout?.status ?? "draft") === "done"; // тренировка завершена
+  const isViewOnly = !!paramId && isDone && !wantsEdit; // просмотр завершённой тренировки без редактирования
+  const isEditMode = !!paramId && isDone && wantsEdit; // редактирование завершённой тренировки
 
   // --- гарды: загрузка / не найдено (аккуратно) ---
   if (paramId && currentId !== paramId) {
@@ -109,27 +132,44 @@ export default function WorkoutEditor() {
 
   function handleMetaDateBlur() {
     if (!currentId) return;
+
     const next = (metaDate || "").trim();
-    if (!next) {
-      // если поле очистили — вернём прежнюю дату (или сегодня)
-      const fallback = workout?.date || todayISODate();
-      setMetaDate(fallback);
-      updateWorkoutMeta(currentId, { date: fallback });
-      setWorkout(getWorkout(currentId));
-      return;
-    }
-    if (workout?.date !== next) {
-      updateWorkoutMeta(currentId, { date: next });
-      setWorkout(getWorkout(currentId));
+    const fallback = workout?.date || todayISODate();
+    const apply = next || fallback; // итоговое значение (не даём остаться пустым)
+
+    // Обновим UI-поле на всякий случай
+    if (apply !== metaDate) setMetaDate(apply);
+
+    if (isEditMode) {
+      // Редактируем завершённую запись локально
+      const copy = JSON.parse(JSON.stringify(editCopy || workout));
+      if (copy.date !== apply) {
+        copy.date = apply;
+        setEditCopy(copy);
+        setWorkout(copy);
+      }
+    } else {
+      // Обычный черновик/новая — сохраняем сразу в storage
+      if (workout?.date !== apply) {
+        updateWorkoutMeta(currentId, { date: apply });
+        setWorkout(getWorkout(currentId));
+      }
     }
   }
 
   function handleMetaNameBlur() {
     if (!currentId) return;
     const trimmed = metaName.trim();
-    if ((workout?.name || "") !== trimmed) {
-      updateWorkoutMeta(currentId, { name: trimmed });
-      setWorkout(getWorkout(currentId));
+    if (isEditMode) {
+      const copy = clone(editCopy || workout);
+      copy.name = trimmed;
+      setEditCopy(copy);
+      setWorkout(copy);
+    } else {
+      if ((workout?.name || "") !== trimmed) {
+        updateWorkoutMeta(currentId, { name: trimmed });
+        setWorkout(getWorkout(currentId));
+      }
     }
   }
 
@@ -155,11 +195,24 @@ export default function WorkoutEditor() {
   function handleAddExercise(e) {
     e.preventDefault();
     if (!currentId || !name.trim()) return;
-    addExercise(currentId, {
-      name: name.trim(),
-      targetMuscle: muscle.trim() || undefined,
-    });
-    setWorkout(getWorkout(currentId)); // обновим состояние
+
+    if (isEditMode) {
+      const copy = clone(editCopy || workout);
+      const ex = {
+        id: newId(),
+        workoutId: currentId,
+        name: name.trim(),
+        targetMuscle: muscle.trim() || "",
+        sets: [],
+        position: (copy.exercises?.length ?? 0),
+      };
+      copy.exercises = [...(copy.exercises || []), ex];
+      setEditCopy(copy);
+      setWorkout(copy);
+    } else {
+      addExercise(currentId, { name: name.trim(), targetMuscle: muscle.trim() || undefined });
+      setWorkout(getWorkout(currentId));
+    }
     setName("");
     setMuscle("");
   }
@@ -187,6 +240,22 @@ export default function WorkoutEditor() {
         </>
       ) : (
         <>
+          {isEditMode && (
+            <div
+              style={{
+                margin: "8px 0 12px",
+                padding: "8px 10px",
+                border: "1px solid #fde68a",
+                background: "#fffbeb",
+                color: "#92400e",
+                borderRadius: 10,
+              }}
+            >
+             Режим редактирования завершённой тренировки.
+             Изменения применятся только после нажатия «💾 Сохранить изменения».
+            </div>
+          )}
+
           {/* Мета: дата + имя (автосохранение при выходе из поля). Кнопки нет. */}
           <div
             style={{
@@ -202,7 +271,7 @@ export default function WorkoutEditor() {
               value={metaDate}
               onChange={(e) => setMetaDate(e.target.value)}
               onBlur={handleMetaDateBlur}
-              disabled={(workout.status ?? "draft") === "done"}
+              disabled={isViewOnly}
               style={{ padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8 }}
             />
             <input
@@ -211,7 +280,7 @@ export default function WorkoutEditor() {
               value={metaName}
               onChange={(e) => setMetaName(e.target.value)}
               onBlur={handleMetaNameBlur}
-              disabled={(workout.status ?? "draft") === "done"}
+              disabled={isViewOnly}
               style={{ padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, minWidth: 220 }}
             />
             <span style={{ fontSize: 12, opacity: 0.6 }}>
@@ -226,311 +295,416 @@ export default function WorkoutEditor() {
           </div>
 
           {/* добавить упражнение */}
-          <form
-            onSubmit={handleAddExercise}
-            style={{
-              display: "flex",
-              gap: 8,
-              marginBottom: 12,
-              flexWrap: "wrap",
-            }}
-          >
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Exercise name (напр., Bench Press)"
-              style={{
-                padding: "8px 10px",
-                border: "1px solid #e5e7eb",
-                borderRadius: 8,
-                flex: "1 1 220px",
-              }}
-            />
-            <input
-              value={muscle}
-              onChange={(e) => setMuscle(e.target.value)}
-              placeholder="Target muscle (опц.)"
-              style={{
-                padding: "8px 10px",
-                border: "1px solid #e5e7eb",
-                borderRadius: 8,
-                flex: "1 1 180px",
-              }}
-            />
-            <button
-              type="submit"
-              style={{
-                padding: "8px 12px",
-                border: "1px solid #e5e7eb",
-                borderRadius: 8,
-                cursor: "pointer",
-              }}
-            >
-              ➕ Упражнение
-            </button>
-          </form>
-
-          {/* список упражнений */}
-{(workout.exercises ?? []).length === 0 ? (
-  <p style={{ opacity: 0.8 }}>Добавь первое упражнение.</p>
-) : (
-  (() => {
-    const exList = (workout.exercises ?? [])
-      .slice()
-      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-
-    return (
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {exList.map((ex, i) => (
-          <li
-            key={ex.id}
-            style={{
-              border: "1px solid #e5e7eb",
-              borderRadius: 10,
-              padding: 12,
-              marginBottom: 10,
-            }}
-          >
-            {/* шапка упражнения */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <div style={{ fontWeight: 600 }}>{ex.name}</div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  onClick={() => {
-                    moveExercise(currentId, ex.id, "up");
-                    setWorkout(getWorkout(currentId));
-                  }}
-                  disabled={i === 0}
-                  title="Выше"
-                  style={{
-                    padding: "4px 8px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    cursor: i === 0 ? "default" : "pointer",
-                    opacity: i === 0 ? 0.5 : 1,
-                  }}
-                >
-                  ↑
-                </button>
-                <button
-                  onClick={() => {
-                    moveExercise(currentId, ex.id, "down");
-                    setWorkout(getWorkout(currentId));
-                  }}
-                  disabled={i === exList.length - 1}
-                  title="Ниже"
-                  style={{
-                    padding: "4px 8px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    cursor: i === exList.length - 1 ? "default" : "pointer",
-                    opacity: i === exList.length - 1 ? 0.5 : 1,
-                  }}
-                >
-                  ↓
-                </button>
-                <button
-                  onClick={() => {
-                    if (!confirm("Удалить упражнение?")) return;
-                    removeExercise(currentId, ex.id);
-                    setWorkout(getWorkout(currentId));
-                  }}
-                  title="Удалить упражнение"
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    padding: "4px 8px",
-                    cursor: "pointer",
-                  }}
-                >
-                  ✖
-                </button>
-              </div>
-            </div>
-
-            {/* инфо */}
-            <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>
-              Мышца: {ex.targetMuscle || "—"} · Подходов: {ex.sets?.length ?? 0}
-            </div>
-
-            {/* список подходов */}
-            {(ex.sets ?? []).length > 0 && (
-              <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
-                {(ex.sets ?? []).map((s) => (
-                  <li
-                    key={s.id}
-                    style={{
-                      padding: "6px 0",
-                      fontSize: 14,
-                      display: "grid",
-                      gridTemplateColumns: "120px 120px 1fr auto",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    {/* reps */}
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      defaultValue={s.reps}
-                      disabled={s.isDone}
-                      onBlur={(e) => {
-                        const v = Math.max(0, Number(e.currentTarget.value || 0));
-                        if (v !== s.reps) {
-                          updateSet(currentId, ex.id, s.id, { reps: v });
-                          setWorkout(getWorkout(currentId));
-                        }
-                      }}
-                      style={{
-                        padding: "6px 10px",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                      }}
-                      placeholder="Повторы"
-                      aria-label="Повторы"
-                    />
-
-                    {/* weight */}
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.5"
-                      min="0"
-                      defaultValue={s.weight}
-                      disabled={s.isDone}
-                      onBlur={(e) => {
-                        const v = Math.max(0, Number(e.currentTarget.value || 0));
-                        if (v !== s.weight) {
-                          updateSet(currentId, ex.id, s.id, { weight: v });
-                          setWorkout(getWorkout(currentId));
-                        }
-                      }}
-                      style={{
-                        padding: "6px 10px",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                      }}
-                      placeholder="Вес"
-                      aria-label="Вес"
-                    />
-
-                    {/* чекбокс "выполнен" */}
-                    <label
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        opacity: 0.9,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!!s.isDone}
-                        onChange={(e) => {
-                          updateSet(currentId, ex.id, s.id, {
-                            isDone: e.currentTarget.checked,
-                          });
-                          setWorkout(getWorkout(currentId));
-                        }}
-                      />
-                      выполнен
-                    </label>
-
-                    {/* удалить подход */}
-                    <button
-                      onClick={() => {
-                        if (!confirm("Удалить подход?")) return;
-                        removeSet(currentId, ex.id, s.id);
-                        setWorkout(getWorkout(currentId));
-                      }}
-                      title="Удалить подход"
-                      style={{
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        padding: "2px 8px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      ✖
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/* форма добавления подхода */}
+          {!isViewOnly && (
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const fd = new FormData(e.currentTarget);
-                const reps = Number(fd.get("reps") || 0);
-                const weight = Number(fd.get("weight") || 0);
-                if (!Number.isFinite(reps) || reps <= 0) return;
-                if (!Number.isFinite(weight) || weight < 0) return;
-                addSet(currentId, ex.id, { reps, weight });
-                setWorkout(getWorkout(currentId));
-                e.currentTarget.reset();
-              }}
+              onSubmit={handleAddExercise}
               style={{
                 display: "flex",
                 gap: 8,
-                marginTop: 8,
+                marginBottom: 12,
                 flexWrap: "wrap",
               }}
             >
               <input
-                name="reps"
-                type="number"
-                inputMode="numeric"
-                min="1"
-                placeholder="Повторы"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Exercise name (напр., Bench Press)"
                 style={{
-                  padding: "6px 10px",
+                  padding: "8px 10px",
                   border: "1px solid #e5e7eb",
                   borderRadius: 8,
-                  width: 110,
+                  flex: "1 1 220px",
                 }}
               />
               <input
-                name="weight"
-                type="number"
-                inputMode="decimal"
-                step="0.5"
-                min="0"
-                placeholder="Вес"
+                value={muscle}
+                onChange={(e) => setMuscle(e.target.value)}
+                placeholder="Target muscle (опц.)"
                 style={{
-                  padding: "6px 10px",
+                  padding: "8px 10px",
                   border: "1px solid #e5e7eb",
                   borderRadius: 8,
-                  width: 110,
+                  flex: "1 1 180px",
                 }}
               />
               <button
                 type="submit"
                 style={{
-                  padding: "6px 10px",
+                  padding: "8px 12px",
                   border: "1px solid #e5e7eb",
                   borderRadius: 8,
                   cursor: "pointer",
                 }}
               >
-                ➕ Добавить подход
+                ➕ Упражнение
               </button>
             </form>
-          </li>
-        ))}
-      </ul>
-    );
-  })()  // ← ВАЖНО: вызываем IIFE!
-)}
+          )}
+
+
+          {/* список упражнений */}
+          {(workout.exercises ?? []).length === 0 ? (
+            <p style={{ opacity: 0.8 }}>Добавь первое упражнение.</p>
+          ) : (
+            (() => {
+              const exList = (workout.exercises ?? [])
+                .slice()
+                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+              return (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {exList.map((ex, i) => (
+                    <li
+                      key={ex.id}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        padding: 12,
+                        marginBottom: 10,
+                      }}
+                    >
+                      {/* шапка упражнения */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ fontWeight: 600 }}>{ex.name}</div>
+                        {!isViewOnly && (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              onClick={() => {
+                                if (isEditMode) {
+                                  const copy = clone(editCopy || workout);
+                                  const list = (copy.exercises || []).slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+                                  const idx = list.findIndex((e) => e.id === ex.id);
+                                  const delta = -1 ;
+                                  const target = idx + delta;
+                                  if (idx >= 0 && target >= 0 && target < list.length) {
+                                    const [moved] = list.splice(idx, 1);
+                                    list.splice(target, 0, moved);
+                                    list.forEach((e, i) => e.position = i);
+                                    copy.exercises = list;
+                                    setEditCopy(copy);
+                                    setWorkout(copy);
+                                  }
+                                } else {
+                                  moveExercise(currentId, ex.id, "up");
+                                  setWorkout(getWorkout(currentId));
+                                }
+                              }}
+                              disabled={i === 0}
+                              title="Выше"
+                              style={{
+                                padding: "4px 8px",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: 8,
+                                cursor: i === 0 ? "default" : "pointer",
+                                opacity: i === 0 ? 0.5 : 1,
+                              }}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (isEditMode) {
+                                  const copy = clone(editCopy || workout);
+                                  const list = (copy.exercises || []).slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+                                  const idx = list.findIndex((e) => e.id === ex.id);
+                                  const delta =  1;
+                                  const target = idx + delta;
+                                  if (idx >= 0 && target >= 0 && target < list.length) {
+                                    const [moved] = list.splice(idx, 1);
+                                    list.splice(target, 0, moved);
+                                    list.forEach((e, i) => e.position = i);
+                                    copy.exercises = list;
+                                    setEditCopy(copy);
+                                    setWorkout(copy);
+                                  }
+                                } else {
+                                  moveExercise(currentId, ex.id, "down");
+                                  setWorkout(getWorkout(currentId));
+                                }
+                              }}
+                              disabled={i === exList.length - 1}
+                              title="Ниже"
+                              style={{
+                                padding: "4px 8px",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: 8,
+                                cursor: i === exList.length - 1 ? "default" : "pointer",
+                                opacity: i === exList.length - 1 ? 0.5 : 1,
+                              }}
+                            >
+                              ↓
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!confirm("Удалить упражнение?")) return;
+                                if (isEditMode) {
+                                  const copy = clone(editCopy || workout);
+                                  copy.exercises = (copy.exercises || []).filter((e) => e.id !== ex.id).
+                                    map((e, i) => ({ ...e, position: i })); // пересчёт позиций
+                                  setEditCopy(copy);
+                                  setWorkout(copy);
+                                } else {
+                                  removeExercise(currentId, ex.id);
+                                  setWorkout(getWorkout(currentId));
+                                }
+                              }}
+                              title="Удалить упражнение"
+                              style={{
+                                border: "1px solid #e5e7eb",
+                                borderRadius: 8,
+                                padding: "4px 8px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              ✖
+                            </button>
+                          </div>
+                        )}
+
+                      </div>
+
+                      {/* инфо */}
+                      <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>
+                        Мышца: {ex.targetMuscle || "—"} · Подходов: {ex.sets?.length ?? 0}
+                      </div>
+
+                      {/* список подходов */}
+                      {(ex.sets ?? []).length > 0 && (
+                        <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
+                          {(ex.sets ?? []).map((s) => (
+                            <li
+                              key={s.id}
+                              style={{
+                                padding: "6px 0",
+                                fontSize: 14,
+                                display: "grid",
+                                gridTemplateColumns: "120px 120px 1fr auto",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              {/* reps */}
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min="0"
+                                defaultValue={s.reps}
+                                disabled={s.isDone || isViewOnly}
+                                onBlur={(e) => {
+                                  const v = Math.max(0, Number(e.currentTarget.value || 0));
+                                  if (v === s.reps) return;
+                                  if (isEditMode) {
+                                    const copy = JSON.parse(JSON.stringify(editCopy || workout));
+                                    const E = (copy.exercises || []).find((e) => e.id === ex.id);
+                                    if (E) {
+                                      const S = (E.sets || []).find((x) => x.id === s.id);
+                                      if (S) S.reps = v;
+                                    }
+                                    setEditCopy(copy); setWorkout(copy);
+                                  } else {
+                                    updateSet(currentId, ex.id, s.id, { reps: v });
+                                    setWorkout(getWorkout(currentId));
+                                  }
+
+                                }}
+                                style={{
+                                  padding: "6px 10px",
+                                  border: "1px solid #e5e7eb",
+                                  borderRadius: 8,
+                                }}
+                                placeholder="Повторы"
+                                aria-label="Повторы"
+                              />
+
+                              {/* weight */}
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                step="0.5"
+                                min="0"
+                                defaultValue={s.weight}
+                                disabled={s.isDone || isViewOnly}
+                                onBlur={(e) => {
+                                  const v = Math.max(0, Number(e.currentTarget.value || 0));
+                                  if (v === s.weight) return;
+
+                                  if (isEditMode) {
+                                    const copy = JSON.parse(JSON.stringify(editCopy || workout));
+                                    const E = (copy.exercises || []).find((e) => e.id === ex.id);
+                                    if (E) {
+                                      const S = (E.sets || []).find((x) => x.id === s.id);
+                                      if (S) S.weight = v;
+                                    }
+                                    setEditCopy(copy); setWorkout(copy);
+                                  } else {
+                                    updateSet(currentId, ex.id, s.id, { weight: v });
+                                    setWorkout(getWorkout(currentId));
+                                  }
+
+                                }}
+                                style={{
+                                  padding: "6px 10px",
+                                  border: "1px solid #e5e7eb",
+                                  borderRadius: 8,
+                                }}
+                                placeholder="Вес"
+                                aria-label="Вес"
+                              />
+
+                              {/* чекбокс "выполнен" */}
+                              <label
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  opacity: 0.9,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!!s.isDone}
+                                  disabled={isViewOnly}
+                                  onChange={(e) => {
+                                    const checked = e.currentTarget.checked;
+
+                                    if (isEditMode) {
+                                      const copy = JSON.parse(JSON.stringify(editCopy || workout));
+                                      const E = (copy.exercises || []).find((e0) => e0.id === ex.id);
+                                      if (E) {
+                                        const S = (E.sets || []).find((x) => x.id === s.id);
+                                        if (S) S.isDone = checked;
+                                      }
+                                      setEditCopy(copy);
+                                      setWorkout(copy);
+                                    } else {
+                                      updateSet(currentId, ex.id, s.id, { isDone: checked });
+                                      setWorkout(getWorkout(currentId));
+                                    }
+                                  }}
+                                />
+                                выполнен
+                              </label>
+
+                              {/* удалить подход */}
+                              {!isViewOnly && (
+                                <button
+                                  onClick={() => {
+                                    if (!confirm("Удалить подход?")) return;
+                                    if (isEditMode) {
+                                      const copy = clone(editCopy || workout);
+                                      const E = (copy.exercises || []).find((e) => e.id === ex.id);
+                                      if (E) E.sets = (E.sets || []).filter((x) => x.id !== s.id);
+                                      setEditCopy(copy);
+                                      setWorkout(copy);
+                                    } else {
+                                      removeSet(currentId, ex.id, s.id);
+                                      setWorkout(getWorkout(currentId));
+                                    }
+                                  }}
+                                  title="Удалить подход"
+                                  style={{
+                                    border: "1px solid #e5e7eb",
+                                    borderRadius: 8,
+                                    padding: "2px 8px",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ✖
+                                </button>
+                              )}
+
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {/* форма добавления подхода */}
+                      {!isViewOnly && (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const fd = new FormData(e.currentTarget);
+                            const reps = Number(fd.get("reps") || 0);
+                            const weight = Number(fd.get("weight") || 0);
+                            if (!Number.isFinite(reps) || reps <= 0) return;
+                            if (!Number.isFinite(weight) || weight < 0) return;
+
+                            if (isEditMode) {
+                              const copy = clone(editCopy || workout);
+                              const E = (copy.exercises || []).find((e) => e.id === ex.id);
+                              if (E) {
+                                const set = { id: newId(), exerciseId: ex.id, reps, weight, isDone: false };
+                                E.sets = [...(E.sets || []), set];
+                              }
+                              setEditCopy(copy); setWorkout(copy);
+                            } else {
+                              addSet(currentId, ex.id, { reps, weight });
+                              setWorkout(getWorkout(currentId));
+                            }
+
+                            e.currentTarget.reset();
+                          }}
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            marginTop: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <input
+                            name="reps"
+                            type="number"
+                            inputMode="numeric"
+                            min="1"
+                            placeholder="Повторы"
+                            style={{
+                              padding: "6px 10px",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 8,
+                              width: 110,
+                            }}
+                          />
+                          <input
+                            name="weight"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.5"
+                            min="0"
+                            placeholder="Вес"
+                            style={{
+                              padding: "6px 10px",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 8,
+                              width: 110,
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            style={{
+                              padding: "6px 10px",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: 8,
+                              cursor: "pointer",
+                            }}
+                          >
+                            ➕ Добавить подход
+                          </button>
+                        </form>
+                      )}
+
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()  // ← ВАЖНО: вызываем IIFE!
+          )}
 
           {/* нижняя кнопка: сохранить тренировку (только для черновика) */}
           {(workout.status ?? "draft") === "draft" && (
@@ -551,12 +725,42 @@ export default function WorkoutEditor() {
                 style={{
                   padding: "10px 14px",
                   border: "1px solid #e5e7eb",
-                  color: "#fff",
                   borderRadius: 10,
                   cursor: "pointer",
                 }}
               >
                 Сохранить тренировку
+              </button>
+            </div>
+          )}
+
+          {/* Нижние кнопки в режиме редактирования завершённой тренировки */}
+          {isEditMode && (
+            <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => navigate(`/workout/${currentId}`)} // просто выходим из edit-режима
+                style={{ padding: "10px 14px", border: "1px solid #e5e7eb", borderRadius: 10, cursor: "pointer" }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => {
+                  if (!editCopy) return navigate(`/workout/${currentId}`);
+                  if (!confirm("Сохранить изменения в этой записи?")) return;
+                  replaceWorkout(currentId, editCopy);
+                  // после сохранения обновим состояние и выйдем из режима редактирования
+                  const fresh = getWorkout(currentId);
+                  setWorkout(fresh);
+                  setEditCopy(null);
+                  navigate(`/workout/${currentId}`);
+                }}
+                style={{ padding: "10px 14px",
+                   border: "1px solid #e5e7eb",
+                    
+                      borderRadius: 10,
+                       cursor: "pointer" }}
+              >
+                💾 Сохранить изменения
               </button>
             </div>
           )}

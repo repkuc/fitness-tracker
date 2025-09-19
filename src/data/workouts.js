@@ -458,18 +458,18 @@ export function replaceWorkout(workoutId, next) {
   const orig = all[idx];
 
   // Санитизируем упражнения/подходы (позиции и числовые поля)
-  const exercises = (Array.isArray(next?.exercises) ? next.exercises : []).map((ex, i) => {
-    const position = Number.isFinite(ex?.position) ? Number(ex.position) : i;
-    const sets = (Array.isArray(ex?.sets) ? ex.sets : []).map((s) => ({
-      ...s,
-      reps: Math.max(0, Number(s?.reps || 0)),
-      weight: Math.max(0, Number(s?.weight || 0)),
-      isDone: !!s?.isDone,
+  const exercises = (Array.isArray(next?.exercises) ? next.exercises : []).map((ex, i) => { // копируем упражнения
+    const position = Number.isFinite(ex?.position) ? Number(ex.position) : i; // позиция по индексу, если не было
+    const sets = (Array.isArray(ex?.sets) ? ex.sets : []).map((s) => ({ // копируем подход
+      ...s, // копируем всё остальное
+      reps: Math.max(0, Number(s?.reps || 0)), // неотрицательное число
+      weight: Math.max(0, Number(s?.weight || 0)), // неотрицательное число
+      isDone: !!s?.isDone, 
     }));
-    return {...ex,  position, sets };
+    return {...ex,  position, sets }; // возвращаем упражнение с нормализованными полями
   });
 
-  const updated = {
+  const updated = { // создаём обновлённую тренировку
     ...orig, // сохраняем id, status, finishedAt
     date: next?.date ?? orig.date,
     name: next?.name ?? orig.name,

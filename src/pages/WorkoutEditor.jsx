@@ -229,6 +229,14 @@ export default function WorkoutEditor() {
         position: (copy.exercises?.length ?? 0),
       };
       copy.exercises = [...(copy.exercises || []), ex];
+
+      // ✅ сразу раскрываем добавленное упражнение по его id
+  setExpandedIds(prev => {
+    const next = new Set(prev);
+    next.add(ex.id);
+    return next;
+  });
+
       setEditCopy(copy);
       setWorkout(copy);
     } else {
@@ -238,10 +246,21 @@ export default function WorkoutEditor() {
     setName("");
     setMuscle("");
 
-    // найдём только что созданное упражнение по имени (или по изменению длины)
-    const newEx = (w.exercises || []).slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).at(-1);
-    if (newEx) {
-      setExpandedIds(prev => new Set(prev).add(newEx.id));
+    // авто-раскрыть добавленное упражнение
+    if (isEditMode) {
+      const copy = editCopy || workout;
+      const newEx = (copy.exercises || [])
+        .slice()
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .at(-1);
+      if (newEx) setExpandedIds(prev => new Set(prev).add(newEx.id));
+    } else {
+      const fresh = getWorkout(currentId);
+      const newEx = (fresh?.exercises || [])
+        .slice()
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .at(-1);
+      if (newEx) setExpandedIds(prev => new Set(prev).add(newEx.id));
     }
 
     // Мягкая прокрутка вниз и вернуть фокус в имя
@@ -258,6 +277,33 @@ export default function WorkoutEditor() {
       else next.add(exId);
       return next;
     });
+  }
+
+  function adjustSetValue(exId, setId, field, delta) {
+    if (isViewOnly) return;
+    if (isEditMode) {
+      const copy = JSON.parse(JSON.stringify(editCopy || workout));
+      const E = (copy.exercises || []).find(e => e.id === exId);
+      if (!E) return;
+      const S = (E.sets || []).find(x => x.id === setId);
+      if (!S) return;
+      const cur = Number(S[field] || 0);
+      let next = cur + delta;
+      if (field === "reps") next = Math.max(0, Math.round(next));
+      if (field === "weight") next = Math.max(0, Math.round(next * 2) / 2); // шаг 0.5
+      S[field] = next;
+      setEditCopy(copy);
+      setWorkout(copy);
+    } else {
+      // прямое обновление в storage
+      const cur = Number((getWorkout(currentId)?.exercises || [])
+        .find(e => e.id === exId)?.sets?.find(s => s.id === setId)?.[field] || 0);
+      let next = cur + delta;
+      if (field === "reps") next = Math.max(0, Math.round(next));
+      if (field === "weight") next = Math.max(0, Math.round(next * 2) / 2);
+      updateSet(currentId, exId, setId, { [field]: next });
+      setWorkout(getWorkout(currentId));
+    }
   }
 
   return (
@@ -363,6 +409,7 @@ export default function WorkoutEditor() {
                     >
                       {/* шапка упражнения */}
                       <div
+                        className="wrap"
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
@@ -490,6 +537,7 @@ export default function WorkoutEditor() {
                               {(ex.sets ?? []).map((s) => (
                                 <li
                                   key={s.id}
+                                  className="setRow"
                                   style={{
                                     padding: "6px 0",
                                     fontSize: 14,
@@ -500,75 +548,116 @@ export default function WorkoutEditor() {
                                   }}
                                 >
                                   {/* reps */}
-                                  <input
-                                    type="number"
-                                    inputMode="numeric"
-                                    min="0"
-                                    defaultValue={s.reps}
-                                    disabled={s.isDone || isViewOnly}
-                                    onBlur={(e) => {
-                                      const v = Math.max(0, Number(e.currentTarget.value || 0));
-                                      if (v === s.reps) return;
-                                      if (isEditMode) {
-                                        const copy = JSON.parse(JSON.stringify(editCopy || workout));
-                                        const E = (copy.exercises || []).find((e) => e.id === ex.id);
-                                        if (E) {
-                                          const S = (E.sets || []).find((x) => x.id === s.id);
-                                          if (S) S.reps = v;
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => adjustSetValue(ex.id, s.id, "reps", -1)}
+                                      disabled={s.isDone || isViewOnly}
+                                      style={{ padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+                                      aria-label="-1 повтор"
+                                    >−1</button>
+                                    <input
+                                      key={`reps-${s.id}-${s.reps}`}
+                                      type="number"
+                                      inputMode="numeric"
+                                      min="0"
+                                      defaultValue={s.reps}
+                                      disabled={s.isDone || isViewOnly}
+                                      onBlur={(e) => {
+                                        const v = Math.max(0, Number(e.currentTarget.value || 0));
+                                        if (v === s.reps) return;
+                                        if (isEditMode) {
+                                          const copy = JSON.parse(JSON.stringify(editCopy || workout));
+                                          const E = (copy.exercises || []).find((e) => e.id === ex.id);
+                                          if (E) {
+                                            const S = (E.sets || []).find((x) => x.id === s.id);
+                                            if (S) S.reps = v;
+                                          }
+                                          setEditCopy(copy); setWorkout(copy);
+                                        } else {
+                                          updateSet(currentId, ex.id, s.id, { reps: v });
+                                          setWorkout(getWorkout(currentId));
                                         }
-                                        setEditCopy(copy); setWorkout(copy);
-                                      } else {
-                                        updateSet(currentId, ex.id, s.id, { reps: v });
-                                        setWorkout(getWorkout(currentId));
-                                      }
 
-                                    }}
-                                    style={{
-                                      padding: "6px 10px",
-                                      border: "1px solid #e5e7eb",
-                                      borderRadius: 8,
-                                    }}
-                                    placeholder="Повторы"
-                                    aria-label="Повторы"
-                                  />
+                                      }}
+                                      style={{
+                                        padding: "6px 10px",
+                                        border: "1px solid #e5e7eb",
+                                        borderRadius: 8,
+                                        width: "100%",
+                                        minWidth: 0,
+                                      }}
+                                      placeholder="Повторы"
+                                      aria-label="Повторы"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => adjustSetValue(ex.id, s.id, "reps", +1)}
+                                      disabled={s.isDone || isViewOnly}
+                                      style={{ padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+                                      aria-label="+1 повтор"
+                                    >+1</button>
+                                  </div>
+
 
                                   {/* weight */}
-                                  <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.5"
-                                    min="0"
-                                    defaultValue={s.weight}
-                                    disabled={s.isDone || isViewOnly}
-                                    onBlur={(e) => {
-                                      const v = Math.max(0, Number(e.currentTarget.value || 0));
-                                      if (v === s.weight) return;
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => adjustSetValue(ex.id, s.id, "weight", -2.5)}
+                                      disabled={s.isDone || isViewOnly}
+                                      style={{ padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+                                      aria-label="-2.5 кг"
+                                    >−2.5</button>
+                                    <input
+                                      key={`weight-${s.id}-${s.weight}`}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="0.5"
+                                      min="0"
+                                      defaultValue={s.weight}
+                                      disabled={s.isDone || isViewOnly}
+                                      onBlur={(e) => {
+                                        const v = Math.max(0, Number(e.currentTarget.value || 0));
+                                        if (v === s.weight) return;
 
-                                      if (isEditMode) {
-                                        const copy = JSON.parse(JSON.stringify(editCopy || workout));
-                                        const E = (copy.exercises || []).find((e) => e.id === ex.id);
-                                        if (E) {
-                                          const S = (E.sets || []).find((x) => x.id === s.id);
-                                          if (S) S.weight = v;
+                                        if (isEditMode) {
+                                          const copy = JSON.parse(JSON.stringify(editCopy || workout));
+                                          const E = (copy.exercises || []).find((e) => e.id === ex.id);
+                                          if (E) {
+                                            const S = (E.sets || []).find((x) => x.id === s.id);
+                                            if (S) S.weight = v;
+                                          }
+                                          setEditCopy(copy); setWorkout(copy);
+                                        } else {
+                                          updateSet(currentId, ex.id, s.id, { weight: v });
+                                          setWorkout(getWorkout(currentId));
                                         }
-                                        setEditCopy(copy); setWorkout(copy);
-                                      } else {
-                                        updateSet(currentId, ex.id, s.id, { weight: v });
-                                        setWorkout(getWorkout(currentId));
-                                      }
 
-                                    }}
-                                    style={{
-                                      padding: "6px 10px",
-                                      border: "1px solid #e5e7eb",
-                                      borderRadius: 8,
-                                    }}
-                                    placeholder="Вес"
-                                    aria-label="Вес"
-                                  />
+                                      }}
+                                      style={{
+                                        padding: "6px 10px",
+                                        border: "1px solid #e5e7eb",
+                                        borderRadius: 8,
+                                        width: "100%",
+                                        minWidth: 0,
+                                      }}
+                                      placeholder="Вес"
+                                      aria-label="Вес"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => adjustSetValue(ex.id, s.id, "weight", +2.5)}
+                                      disabled={s.isDone || isViewOnly}
+                                      style={{ padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+                                      aria-label="+2.5 кг"
+                                    >+2.5</button>
+                                  </div>
+
 
                                   {/* чекбокс "выполнен" */}
                                   <label
+                                    className="doneCell"
                                     style={{
                                       display: "inline-flex",
                                       alignItems: "center",
@@ -604,6 +693,7 @@ export default function WorkoutEditor() {
                                   {/* удалить подход */}
                                   {!isViewOnly && (
                                     <button
+                                      className="delCell"
                                       onClick={() => {
                                         if (!confirm("Удалить подход?")) return;
                                         if (isEditMode) {
@@ -677,7 +767,9 @@ export default function WorkoutEditor() {
                                   padding: "6px 10px",
                                   border: "1px solid #e5e7eb",
                                   borderRadius: 8,
-                                  width: 110,
+                                  width: "100%",
+                                  minWidth: 0
+
                                 }}
                               />
                               <input
@@ -691,7 +783,8 @@ export default function WorkoutEditor() {
                                   padding: "6px 10px",
                                   border: "1px solid #e5e7eb",
                                   borderRadius: 8,
-                                  width: 110,
+                                  width: "100%",
+                                  minWidth: 0
                                 }}
                               />
                               <button
@@ -728,6 +821,7 @@ export default function WorkoutEditor() {
               }}
             >
               <input
+                ref={nameInputRef}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Exercise name (напр., Bench Press)"

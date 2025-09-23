@@ -13,6 +13,24 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Глобально: без горизонтальной прокрутки */
+html, body { overflow-x: hidden; }
+
+/* Сетка строки подхода — на мобиле в 2 колонки */
+@media (max-width: 480px) {
+  .setRow {
+    grid-template-columns: 1fr 1fr !important; /* reps | weight */
+    row-gap: 8px;
+  }
+  .setRow .doneCell { grid-column: 1 / 2; justify-self: start; }
+  .setRow .delCell  { grid-column: 2 / 3; justify-self: end; }
+}
+
+/* Кнопочные ряды могут переноситься */
+.wrap { flex-wrap: wrap; }
+/* Чтобы инпуты во флекс-контейнерах могли сжиматься, а не упираться */
+.shrink { min-width: 0; }
+
 a {
   font-weight: 500;
   color: #646cff;

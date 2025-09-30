@@ -43,6 +43,7 @@ export default function History() {
   return (
     <section style={{ padding: 16 }}>
       <h2 style={{ marginBottom: 8 }}>History</h2>
+      
 
       {items.length === 0 ? (
         <p style={{ opacity: 0.8 }}>
@@ -56,17 +57,16 @@ export default function History() {
             return (
               <li
                 key={w.id}
-                style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12, marginBottom: 10 }}
+                style={{ borderRadius: 10, padding: 12, marginBottom: 10 }}
               >
-                <div style={{ fontWeight: 600 }}>
-                  <Link to={`/workout/${w.id}`} style={{ textDecoration: "none", color: "#111827" }}>
-                    {formatShort(displayDate)} {w?.name ? `— ${w.name}` : ""}
+                <div className="meta" style={{ marginBottom: 6 }}>
+                  {formatShort(w.date)} —{" "}
+                  <Link to={`/workout/${w.id}`} className="link">
+                    {w.name || "Workout"}
                   </Link>
-                  {w?.sourceWorkoutId && (
-                    <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.6 }}>(повтор)</span>
-                  )}
+                  {w.sourceWorkoutId && <span className="badge">повтор</span>}
                 </div>
-                 {(() => {
+                {(() => {
                   const displayDate = w?.finishedAt ? String(w.finishedAt).slice(0, 10) : (w?.date || "");
                   const stats = calcStats(w);
                   return (
@@ -76,21 +76,23 @@ export default function History() {
                         Повторений: <strong>{stats.totalReps}</strong> ·
                         Объём: <strong>{Math.round(stats.totalVolume).toLocaleString("ru-RU")} кг</strong>
                       </div>
-                      <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                      <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <button
+                          className="btn"
                           onClick={() => {
                             // создаём новый черновик на основе выбранной тренировки и открываем /workout/new
                             repeatWorkout(w.id);
                             navigate("/workout/new");
                           }}
-                          style={{ padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, cursor: "pointer" }}
+
                         >
                           🔁 Повторить
                         </button>
 
-                        <button 
-                        onClick={() => navigate(`/workout/${w.id}?edit=1`)}
-                        style={{ padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, cursor: "pointer" }}
+                        <button
+                          className="btn"
+                          onClick={() => navigate(`/workout/${w.id}?edit=1`)}
+
                         >
                           ✏️ Изменить
                         </button>

@@ -319,7 +319,7 @@ export default function WorkoutEditor() {
             onClick={handleStart}
             style={{
               padding: "10px 14px",
-              border: "1px solid #e5e7eb",
+              
               borderRadius: 10,
               cursor: "pointer",
             }}
@@ -361,7 +361,7 @@ export default function WorkoutEditor() {
               onChange={(e) => setMetaDate(e.target.value)}
               onBlur={handleMetaDateBlur}
               disabled={isViewOnly}
-              style={{ padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+              style={{ padding: "6px 10px",  borderRadius: 8 }}
             />
             <input
               type="text"
@@ -370,7 +370,7 @@ export default function WorkoutEditor() {
               onChange={(e) => setMetaName(e.target.value)}
               onBlur={handleMetaNameBlur}
               disabled={isViewOnly}
-              style={{ padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 8, minWidth: 220 }}
+              style={{ padding: "6px 10px", borderRadius: 8, minWidth: 220 }}
             />
             <span style={{ fontSize: 12, opacity: 0.6 }}>
               Черновик сохраняется автоматически
@@ -401,7 +401,7 @@ export default function WorkoutEditor() {
                     <li
                       key={ex.id}
                       style={{
-                        border: "1px solid #e5e7eb",
+                        
                         borderRadius: 10,
                         padding: 12,
                         marginBottom: 10,
@@ -420,7 +420,7 @@ export default function WorkoutEditor() {
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <button onClick={() => toggleExercise(ex.id)}
                             title={expandedIds.has(ex.id) ? "Свернуть" : "Развернуть"}
-                            style={{ padding: "2px 8px", border: "1px solid #e5e7eb", borderRadius: 8, cursor: "pointer" }}
+                            style={{ padding: "2px 8px", borderRadius: 8, cursor: "pointer" }}
                           >
                             {expandedIds.has(ex.id) ? "▾" : "▸"}
                           </button>
@@ -454,7 +454,7 @@ export default function WorkoutEditor() {
                               title="Выше"
                               style={{
                                 padding: "4px 8px",
-                                border: "1px solid #e5e7eb",
+                  
                                 borderRadius: 8,
                                 cursor: i === 0 ? "default" : "pointer",
                                 opacity: i === 0 ? 0.5 : 1,
@@ -487,7 +487,7 @@ export default function WorkoutEditor() {
                               title="Ниже"
                               style={{
                                 padding: "4px 8px",
-                                border: "1px solid #e5e7eb",
+                                
                                 borderRadius: 8,
                                 cursor: i === exList.length - 1 ? "default" : "pointer",
                                 opacity: i === exList.length - 1 ? 0.5 : 1,
@@ -511,7 +511,7 @@ export default function WorkoutEditor() {
                               }}
                               title="Удалить упражнение"
                               style={{
-                                border: "1px solid #e5e7eb",
+                                
                                 borderRadius: 8,
                                 padding: "4px 8px",
                                 cursor: "pointer",
@@ -553,7 +553,7 @@ export default function WorkoutEditor() {
                                       type="button"
                                       onClick={() => adjustSetValue(ex.id, s.id, "reps", -1)}
                                       disabled={s.isDone || isViewOnly}
-                                      style={{ padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+                                      style={{ padding: "4px 8px",  borderRadius: 8 }}
                                       aria-label="-1 повтор"
                                     >−1</button>
                                     <input
@@ -582,7 +582,7 @@ export default function WorkoutEditor() {
                                       }}
                                       style={{
                                         padding: "6px 10px",
-                                        border: "1px solid #e5e7eb",
+                                        
                                         borderRadius: 8,
                                         width: "100%",
                                         minWidth: 0,
@@ -594,7 +594,7 @@ export default function WorkoutEditor() {
                                       type="button"
                                       onClick={() => adjustSetValue(ex.id, s.id, "reps", +1)}
                                       disabled={s.isDone || isViewOnly}
-                                      style={{ padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+                                      style={{ padding: "4px 8px", borderRadius: 8 }}
                                       aria-label="+1 повтор"
                                     >+1</button>
                                   </div>
@@ -606,7 +606,7 @@ export default function WorkoutEditor() {
                                       type="button"
                                       onClick={() => adjustSetValue(ex.id, s.id, "weight", -2.5)}
                                       disabled={s.isDone || isViewOnly}
-                                      style={{ padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+                                      style={{ padding: "4px 8px",  borderRadius: 8 }}
                                       aria-label="-2.5 кг"
                                     >−2.5</button>
                                     <input
@@ -637,7 +637,7 @@ export default function WorkoutEditor() {
                                       }}
                                       style={{
                                         padding: "6px 10px",
-                                        border: "1px solid #e5e7eb",
+                                        
                                         borderRadius: 8,
                                         width: "100%",
                                         minWidth: 0,
@@ -649,7 +649,7 @@ export default function WorkoutEditor() {
                                       type="button"
                                       onClick={() => adjustSetValue(ex.id, s.id, "weight", +2.5)}
                                       disabled={s.isDone || isViewOnly}
-                                      style={{ padding: "4px 8px", border: "1px solid #e5e7eb", borderRadius: 8 }}
+                                      style={{ padding: "4px 8px",  borderRadius: 8 }}
                                       aria-label="+2.5 кг"
                                     >+2.5</button>
                                   </div>
@@ -709,7 +709,7 @@ export default function WorkoutEditor() {
                                       }}
                                       title="Удалить подход"
                                       style={{
-                                        border: "1px solid #e5e7eb",
+                                        
                                         borderRadius: 8,
                                         padding: "2px 8px",
                                         cursor: "pointer",
@@ -765,7 +765,7 @@ export default function WorkoutEditor() {
                                 placeholder="Повторы"
                                 style={{
                                   padding: "6px 10px",
-                                  border: "1px solid #e5e7eb",
+                                  
                                   borderRadius: 8,
                                   width: "100%",
                                   minWidth: 0
@@ -781,7 +781,7 @@ export default function WorkoutEditor() {
                                 placeholder="Вес"
                                 style={{
                                   padding: "6px 10px",
-                                  border: "1px solid #e5e7eb",
+                                  
                                   borderRadius: 8,
                                   width: "100%",
                                   minWidth: 0
@@ -791,7 +791,7 @@ export default function WorkoutEditor() {
                                 type="submit"
                                 style={{
                                   padding: "6px 10px",
-                                  border: "1px solid #e5e7eb",
+                                  
                                   borderRadius: 8,
                                   cursor: "pointer",
                                 }}
@@ -827,7 +827,7 @@ export default function WorkoutEditor() {
                 placeholder="Exercise name (напр., Bench Press)"
                 style={{
                   padding: "8px 10px",
-                  border: "1px solid #e5e7eb",
+                  
                   borderRadius: 8,
                   flex: "1 1 220px",
                 }}
@@ -838,7 +838,7 @@ export default function WorkoutEditor() {
                 placeholder="Target muscle (опц.)"
                 style={{
                   padding: "8px 10px",
-                  border: "1px solid #e5e7eb",
+                  
                   borderRadius: 8,
                   flex: "1 1 180px",
                 }}
@@ -847,7 +847,7 @@ export default function WorkoutEditor() {
                 type="submit"
                 style={{
                   padding: "8px 12px",
-                  border: "1px solid #e5e7eb",
+                  
                   borderRadius: 8,
                   cursor: "pointer",
                 }}
@@ -866,7 +866,7 @@ export default function WorkoutEditor() {
                 onClick={handleCancel}
                 style={{
                   padding: "10px 14px",
-                  border: "1px solid #e5e7eb",
+                  
                   borderRadius: 10,
                   cursor: "pointer",
                 }}
@@ -877,7 +877,7 @@ export default function WorkoutEditor() {
                 onClick={handleFinish}
                 style={{
                   padding: "10px 14px",
-                  border: "1px solid #e5e7eb",
+                  
                   borderRadius: 10,
                   cursor: "pointer",
                 }}
@@ -892,7 +892,7 @@ export default function WorkoutEditor() {
             <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button
                 onClick={() => navigate(`/workout/${currentId}`)} // просто выходим из edit-режима
-                style={{ padding: "10px 14px", border: "1px solid #e5e7eb", borderRadius: 10, cursor: "pointer" }}
+                style={{ padding: "10px 14px",  borderRadius: 10, cursor: "pointer" }}
               >
                 Отмена
               </button>
@@ -909,7 +909,7 @@ export default function WorkoutEditor() {
                 }}
                 style={{
                   padding: "10px 14px",
-                  border: "1px solid #e5e7eb",
+                  
 
                   borderRadius: 10,
                   cursor: "pointer"
@@ -926,7 +926,7 @@ export default function WorkoutEditor() {
               onClick={() => navigate("/history")}
               style={{
                 padding: "8px 12px",
-                border: "1px solid #e5e7eb",
+                
                 borderRadius: 8,
                 cursor: "pointer",
               }}

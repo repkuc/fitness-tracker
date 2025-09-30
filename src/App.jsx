@@ -4,23 +4,23 @@ import WorkoutEditor from "./pages/WorkoutEditor.jsx";
 import History from "./pages/History.jsx";
 
 const navStyle = {
-  borderRadius: 4,
   display: "flex",
   gap: 12,
   padding: "12px 16px",
-  borderBottom: "2px solid #e5e7eb",
   position: "sticky",
   top: 0,
-  background: "#fff",
   zIndex: 10,
+  background: "var(--card)",
+  borderBottom: "1px solid var(--border)",
 };
 
 const linkStyle = {
   textDecoration: "none",
-  color: "#111827",
+  color: "var(--text)",
   padding: "6px 10px",
   borderRadius: 8,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--border)",
+  background: "transparent",
 };
 
 export default function App() {
@@ -33,16 +33,10 @@ export default function App() {
       }}
     >
       <header style={navStyle}>
-        <Link to="/" style={linkStyle}>
-          Home
-        </Link>
-        <Link to="/workout/new" style={linkStyle}>
-          New Workout
-        </Link>
-        <Link to="/history" style={linkStyle}>
-          History
-        </Link>
-      </header>
+  <Link to="/" style={linkStyle}>Главная</Link>
+  <Link to="/workout/new" style={linkStyle}>Новая тренировка</Link>
+  <Link to="/history" style={linkStyle}>История</Link>
+</header>
 
       <Routes>
   <Route path="/" element={<Home />} />

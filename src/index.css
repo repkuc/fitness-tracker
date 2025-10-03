@@ -93,25 +93,14 @@ button:focus-visible {
   outline: 3px solid #334155;
 }
 
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* вторичный текст (подписи) */
 .muted { color: var(--muted); }
-
-
-
-.card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
-.title { color: var(--text); font-weight: 700; font-size: 22px; }
-.meta  { color: var(--muted); font-size: 14px; }
-
 .link   { color: var(--text); text-decoration: none; }
 .link:hover { text-decoration: underline; }
-
-.badge  { background:#1f2937; color: var(--text); border:1px solid var(--border);
-          border-radius:9999px; padding:2px 8px; font-size:12px; margin-left:8px; }
-
-.btn { border:1px solid var(--border); background: #1f2937; color: var(--text);
-       border-radius:10px; padding:8px 12px; cursor:pointer; }
 .btn:hover { border-color:#64748b; }
-
 
 /* мягкий фон-ореол (можно уменьшить opacity, если ярко) */
 body::before{
@@ -119,4 +108,30 @@ body::before{
   background:
     radial-gradient(600px 400px at 15% 25%, rgb(245, 1, 1), transparent 70%),
     radial-gradient(700px 500px at 85% 100%, rgb(0, 75, 237), transparent 70%);
+}
+
+@layer components {
+  .btn {
+    @apply border border-[var(--border)] bg-[#1f2937] text-[var(--text)]
+           rounded-lg px-3 py-2 cursor-pointer hover:border-slate-500;
+  }
+
+  .btn-primary { @apply bg-[var(--card)] text-[var(--text)] border-[var(--border)]; } /* если понадобится */
+
+  .badge {
+    @apply inline-block rounded-full border border-[var(--border)]
+           bg-[#1f2937] text-[12px] text-[var(--text)] px-2 py-[2px];
+  }
+
+  .meta {
+    @apply text-sm text-[var(--muted)];
+  }
+
+  .card {
+    @apply rounded-xl border border-[var(--border)] bg-[var(--card)] p-4;
+  }
+
+  .title {
+    @apply text-[22px] font-bold text-[var(--text)];
+  }
 }

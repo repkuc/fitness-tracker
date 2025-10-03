@@ -341,7 +341,7 @@ export default function WorkoutEditor() {
               }}
             >
               Режим редактирования завершённой тренировки.
-              Изменения применятся только после нажатия «💾 Сохранить изменения».
+              Изменения применятся только после нажатия «Сохранить изменения».
             </div>
           )}
 
@@ -861,38 +861,28 @@ export default function WorkoutEditor() {
 
           {/* нижняя кнопка: сохранить тренировку (только для черновика) */}
           {(workout.status ?? "draft") === "draft" && (
-            <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
               <button
                 onClick={handleCancel}
-                style={{
-                  padding: "10px 14px",
-                  
-                  borderRadius: 10,
-                  cursor: "pointer",
-                }}
+                className="btn w-full h-10"
               >
-                ↩️ Отменить
+                Отменить
               </button>
               <button
                 onClick={handleFinish}
-                style={{
-                  padding: "10px 14px",
-                  
-                  borderRadius: 10,
-                  cursor: "pointer",
-                }}
+                className="btn w-full h-10"
               >
-                Сохранить тренировку
+              Сохранить тренировку
               </button>
             </div>
           )}
 
           {/* Нижние кнопки в режиме редактирования завершённой тренировки */}
           {isEditMode && (
-            <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
               <button
                 onClick={() => navigate(`/workout/${currentId}`)} // просто выходим из edit-режима
-                style={{ padding: "10px 14px",  borderRadius: 10, cursor: "pointer" }}
+                className="btn w-full h-10"
               >
                 Отмена
               </button>
@@ -907,15 +897,9 @@ export default function WorkoutEditor() {
                   setEditCopy(null);
                   navigate(`/workout/${currentId}`);
                 }}
-                style={{
-                  padding: "10px 14px",
-                  
-
-                  borderRadius: 10,
-                  cursor: "pointer"
-                }}
+                className="btn w-full h-10"
               >
-                💾 Сохранить изменения
+                Сохранить изменения
               </button>
             </div>
           )}

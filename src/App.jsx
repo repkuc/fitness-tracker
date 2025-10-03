@@ -3,25 +3,6 @@ import Home from "./pages/Home.jsx";
 import WorkoutEditor from "./pages/WorkoutEditor.jsx";
 import History from "./pages/History.jsx";
 
-const navStyle = {
-  display: "flex",
-  gap: 12,
-  padding: "12px 16px",
-  position: "sticky",
-  top: 0,
-  zIndex: 10,
-  background: "var(--card)",
-  borderBottom: "1px solid var(--border)",
-};
-
-const linkStyle = {
-  textDecoration: "none",
-  color: "var(--text)",
-  padding: "6px 10px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "transparent",
-};
 
 export default function App() {
   return (
@@ -32,19 +13,30 @@ export default function App() {
         fontFamily: "system-ui, sans-serif",
       }}
     >
-      <header style={navStyle}>
-  <Link to="/" style={linkStyle}>Главная</Link>
-  <Link to="/workout/new" style={linkStyle}>Новая тренировка</Link>
-  <Link to="/history" style={linkStyle}>История</Link>
+      <header
+  className="sticky top-0 z-10 h-12 bg-[var(--card)] border-b border-[var(--border)]
+             px-3 flex items-center overflow-x-auto no-scrollbar"
+>
+  <nav className="flex gap-2 whitespace-nowrap">
+    <Link to="/" className="no-underline text-[var(--text)] border border-[var(--border)] rounded-lg px-3 py-1.5">
+      Главная
+    </Link>
+    <Link to="/workout/new" className="no-underline text-[var(--text)] border border-[var(--border)] rounded-lg px-3 py-1.5">
+      Новая тренировка
+    </Link>
+    <Link to="/history" className="no-underline text-[var(--text)] border border-[var(--border)] rounded-lg px-3 py-1.5">
+      История
+    </Link>
+  </nav>
 </header>
 
       <Routes>
-  <Route path="/" element={<Home />} />
-  <Route path="/workout/new" element={<WorkoutEditor />} />
-  <Route path="/workout/:id" element={<WorkoutEditor />} />
-  <Route path="/history" element={<History />} />
-  <Route path="*" element={<div style={{padding:16}}>Страница не найдена</div>} />
-</Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/workout/new" element={<WorkoutEditor />} />
+        <Route path="/workout/:id" element={<WorkoutEditor />} />
+        <Route path="/history" element={<History />} />
+        <Route path="*" element={<div style={{ padding: 16 }}>Страница не найдена</div>} />
+      </Routes>
 
     </main>
   );

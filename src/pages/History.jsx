@@ -43,7 +43,7 @@ export default function History() {
   return (
     <section style={{ padding: 16 }}>
       <h2 style={{ marginBottom: 8 }}>History</h2>
-      
+
 
       {items.length === 0 ? (
         <p style={{ opacity: 0.8 }}>
@@ -57,45 +57,44 @@ export default function History() {
             return (
               <li
                 key={w.id}
-                style={{ borderRadius: 10, padding: 12, marginBottom: 10 }}
+                className="card mb-3"
               >
-                <div className="meta" style={{ marginBottom: 6 }}>
+                <div className="meta mb-1">
                   {formatShort(w.date)} —{" "}
-                  <Link to={`/workout/${w.id}`} className="link">
+                  <Link to={`/workout/${w.id}`} className="text-[var(--text)] hover:underline">
                     {w.name || "Workout"}
                   </Link>
-                  {w.sourceWorkoutId && <span className="badge">повтор</span>}
+                  {w.sourceWorkoutId && <span className="badge ml-1">повтор</span>}
                 </div>
                 {(() => {
                   const displayDate = w?.finishedAt ? String(w.finishedAt).slice(0, 10) : (w?.date || "");
                   const stats = calcStats(w);
                   return (
                     <>
-                      <div style={{ fontSize: 13, opacity: 0.75, marginTop: 6 }}>
-                        Упражнений: <strong>{stats.exercisesCount}</strong> ·
-                        Повторений: <strong>{stats.totalReps}</strong> ·
-                        Объём: <strong>{Math.round(stats.totalVolume).toLocaleString("ru-RU")} кг</strong>
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[var(--text)]">
+                        <span className="inline-flex whitespace-nowrap">
+                          Упражнений: <b className="ml-1">{stats.exercisesCount}</b>
+                        </span>
+                        <span className="inline-flex whitespace-nowrap">
+                          Повторений: <b className="ml-1">{stats.totalReps}</b>
+                        </span>
+                        <span className="inline-flex whitespace-nowrap">
+                          Объём: <b className="ml-1">{Math.round(stats.totalVolume).toLocaleString("ru-RU")} кг</b>
+                        </span>
                       </div>
-                      <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div className="mt-3 grid grid-cols-2 gap-2 w-full">
                         <button
-                          className="btn"
+                          className="btn w-full h-10"
                           onClick={() => {
                             // создаём новый черновик на основе выбранной тренировки и открываем /workout/new
                             repeatWorkout(w.id);
                             navigate("/workout/new");
                           }}
-
-                        >
-                          🔁 Повторить
-                        </button>
-
+                        >Повторить</button>
                         <button
-                          className="btn"
+                          className="btn w-full h-10"
                           onClick={() => navigate(`/workout/${w.id}?edit=1`)}
-
-                        >
-                          ✏️ Изменить
-                        </button>
+                        >Изменить</button>
                       </div>
                     </>
                   );
